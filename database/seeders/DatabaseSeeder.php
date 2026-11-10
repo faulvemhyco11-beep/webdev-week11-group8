@@ -92,5 +92,6 @@ class DatabaseSeeder extends Seeder
         $venues[1]->notes()->createMany([
             ['body' => 'Projector bulb was replaced last month.'],
         ]);
-    }
+        $this->call(EventScaleSeeder::class);
+    } 
 }
