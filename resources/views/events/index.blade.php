@@ -12,4 +12,4 @@
 </table>
 
 <p><b>Queries run:</b> {{ count(\DB::getQueryLog()) }}</p>
-<p><b>SQL:</b> {{ $sql }}</p>
+<p><b>SQL:</b> {{ $sql }}</p>   
