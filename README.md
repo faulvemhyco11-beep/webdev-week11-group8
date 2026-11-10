@@ -204,3 +204,40 @@ database/
 resources/views/reports/index.blade.php   # the labeled report page
 routes/web.php                            # GET /reports
 ```
+
+## Week 11: Optimized & Advanced Queries
+
+### Query counts (N+1)
+| Version | Queries |
+|---|---|
+| Naive (lazy loading) | 101 |
+| Fixed (with + withCount) | 2 |
+
+The naive page loads each event's venue and participant count one row at a time, which is 1 + 50 + 50 queries. Eager loading with `with()` and `withCount()` fetches them all at once, so the number of queries stays tiny however many events are listed.
+
+### Query plans
+| Query | Index that exists | Plan type | Execution time |
+|---|---|---|---|
+| A (arrow), no index | none | Seq Scan | 0.44 ms |
+| B (contains), no index | none | Seq Scan | 0.486 ms |
+| C (full text), no index | none | Seq Scan | 0.185 ms |
+| A (arrow), best index | btree on (details->>'theme') | 0.446 | 8.773 ms |
+| B (contains), best index | GIN on details | 0.180 | 8.239 ms |
+| C (full text), best index | GIN full-text on description | 0.139 | 241.346 ms |
+| A (arrow), index not used | GIN on details only | Seq Scan | 7.637 ms |
+
+The GIN index on `details` is not used by query A because a GIN index on a whole jsonb column supports operators like `@>`, not `->>` equality.
+
+### Why raw SQL in a migration (Step 8)
+Laravel's schema builder cannot create an expression index on `details->>'theme'` or a GIN index on a jsonb column, so these are raw statements inside a migration. That way they survive `php artisan migrate:fresh --seed`.
+
+### Choosing columns (Step 9)
+- **In JSONB:** `dress_code`. It differs between events, many events don't need it, and it can change without a migration.
+- **In a normal column:** `starts_at`. Every event has it, it has a real date type, and we filter and sort on it constantly.
+
+### Scopes
+- `upcoming`: events that start from now on.
+- `atVenue($venueId)`: events at one venue.
+- `withTheme($theme)`: filters on `details->theme` (arrow form).
+- `withThemeContains($theme)`: filters with JSONB containment.
+- `searchDescription($term)`: full-text search on the description.
